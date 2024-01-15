@@ -1,151 +1,60 @@
 use anchor_lang::prelude::*;
-
-pub mod state;
-use state::AdminConfig;
-use state::PriceFeed;
-
-mod error;
-use error::ErrorCode;
+use pyth_sdk_solana::load_price_feed_from_account_info;
 
 declare_id!("4QKU2dkXGRTGFbR5e5tDQFitFrjVXLnWuKN71iHrZRBo");
 
-const BASE : f64 = 10.0;
+const STALENESS_THRESHOLD: u64 = 60;
+const BTC_USD_PRICE_FEED: &str = "HovQMDrbAgAYPCmHVSrezcSmkMtXSSUsLDFANExrZh2J";
+const SOL_USD_PRICE_FEED: &str = "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix";
+const ETH_USD_PRICE_FEED: &str = "EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw";
+const ENCH_USD_PRICE_FEED: &str = "2iRhuHfXDLmSqxSDo2Gyv59ZMaPDkensHHF2cJwWhaqW";
+const AAVE_USD_PRICE_FEED: &str = "FT7Cup6ZiFDF14uhFD3kYS3URMCf2RZ4iwfNEVUgndHW";
+const BNB_USD_PRICE_FEED: &str = "GwzBgrXb4PG59zjce24SF2b9JXbLEjJJTBkmytuEZj1b";
+const CAKE_USD_PRICE_FEED: &str = "5DcE5KDEN44w6gqqMvfBQXXD18nJ6Zm54o2j1BEtn24b";
 
 #[program]
 pub mod solana_bootcamp_project {
-    use crate::error::ErrorCode;
-
     use super::*;
 
-    pub fn init(ctx: Context<InitRequest>, config: AdminConfig) -> Result<()> {
-        ctx.accounts.config.set_inner(config);
+    pub fn fetch_price(ctx: Context<FetchPrice>, symbol: String) -> Result<()> {
+        // Check if the provided symbol is allowed
+        match symbol.as_str() {
+            "BTC" | "ETH" | "SOL"  | "1INCH" | "AAVE" | "BNB" | "CAKE" => (),
+            _ => return Err(CustomError::InvalidSymbol.into()),
+        }
+
+        // 1- Fetch latest price
+        let price_account_info = &ctx.accounts.price_feed;
+        let price_feed = load_price_feed_from_account_info(&price_account_info).unwrap();
+        let current_timestamp = Clock::get()?.unix_timestamp;
+        let current_price = price_feed
+            .get_price_no_older_than(current_timestamp, STALENESS_THRESHOLD)
+            .unwrap();
+
+        // 2- Format display values rounded to nearest dollar
+        let display_price =
+            u64::try_from(current_price.price).unwrap() / 10u64.pow(u32::try_from(-current_price.expo).unwrap());
+        let display_confidence =
+            u64::try_from(current_price.conf).unwrap() / 10u64.pow(u32::try_from(-current_price.expo).unwrap());
+
+        // 3- Log result
+        msg!("{}/USD price: ({} +- {})", symbol, display_price, display_confidence);
         Ok(())
     }
-
-    pub fn loan_to_value(
-        ctx: Context<QueryRequest>,
-        loan_qty: i64,
-        collateral_qty: i64,
-    ) -> Result<()> {
-        msg!("Loan quantity is {}.", loan_qty);
-        msg!("Collateral quantity is {}.", collateral_qty);
-
-        let loan_feed = &ctx.accounts.pyth_loan_account;
-        let collateral_feed = &ctx.accounts.pyth_collateral_account;
-        // With high confidence, the maximum value of the loan is
-        // (price + conf) * loan_qty * 10 ^ (expo).
-        // Here is more explanation on confidence interval in Pyth:
-        // https://docs.pyth.network/consume-data/best-practices
-        let current_timestamp1 = Clock::get()?.unix_timestamp;
-        let loan_price = loan_feed
-            .get_price_no_older_than(current_timestamp1, 60)
-            .ok_or(ErrorCode::PythOffline)?;
-        let loan_max_price = loan_price
-            .price
-            .checked_add(loan_price.conf as i64)
-            .ok_or(ErrorCode::Overflow)?;
-        let mut loan_max_value = loan_max_price
-            .checked_mul(loan_qty)
-            .ok_or(ErrorCode::Overflow)?;
-
-        // WARNING : f64 SHOULD NOT BE USED IN SMART CONTRACTS, IT IS USED HERE ONLY FOR LOGGING PURPOSES
-        // lets get the maximum loan value based on computation
-        // i.e {} * 10^({})
-        // loan_max_value * 10^(loan_price.expo)
-        let exponent: i32 = loan_price.expo;
-        let result = BASE.powi(exponent.abs());
-        let result = if exponent < 0 { 1.0 / result } else { result };
-        let result_loan_value = loan_max_value as f64 * result;
-
-        msg!(
-            "The maximum loan value is {} * 10^({}) = {}.",
-            loan_max_value,
-            loan_price.expo,
-            result_loan_value
-        );
-
-        // With high confidence, the minimum value of the collateral is
-        // (price - conf) * collateral_qty * 10 ^ (expo).
-        // Here is more explanation on confidence interval in Pyth:
-        // https://docs.pyth.network/consume-data/best-practices
-        let current_timestamp2 = Clock::get()?.unix_timestamp;
-        let collateral_price = collateral_feed
-            .get_price_no_older_than(current_timestamp2, 60)
-            .ok_or(ErrorCode::PythOffline)?;
-        let collateral_min_price = collateral_price
-            .price
-            .checked_sub(collateral_price.conf as i64)
-            .ok_or(ErrorCode::Overflow)?;
-        let mut collateral_min_value = collateral_min_price
-            .checked_mul(collateral_qty)
-            .ok_or(ErrorCode::Overflow)?;
-
-        // WARNING : f64 SHOULD NOT BE USED IN SMART CONTRACTS, IT IS USED HERE ONLY FOR LOGGING PURPOSES
-        // lets get the minimum collateral value based on computation
-        // i.e {} * 10^({})
-        // i.e collateral_min_value * 10^(collateral_price.expo)
-        let exponent: i32 = collateral_price.expo;
-        let result = BASE.powi(exponent.abs());
-        let result: f64 = if exponent < 0 { 1.0 / result } else { result };
-        let result_collateral_value = collateral_min_value as f64 * result;
-
-        msg!(
-            "The minimum collateral value is {} * 10^({}) = {}.",
-            collateral_min_value,
-            collateral_price.expo,
-            result_collateral_value
-        );
-
-        // If the loan and collateral prices use different exponent,
-        // normalize the value.
-        if loan_price.expo > collateral_price.expo {
-            let normalize = (10 as i64)
-                .checked_pow((loan_price.expo - collateral_price.expo) as u32)
-                .ok_or(ErrorCode::Overflow)?;
-            collateral_min_value = collateral_min_value
-                .checked_mul(normalize)
-                .ok_or(ErrorCode::Overflow)?;
-        } else if loan_price.expo < collateral_price.expo {
-            let normalize = (10 as i64)
-                .checked_pow((collateral_price.expo - loan_price.expo) as u32)
-                .ok_or(ErrorCode::Overflow)?;
-            loan_max_value = loan_max_value
-                .checked_mul(normalize)
-                .ok_or(ErrorCode::Overflow)?;
-        }
-
-        // Check whether the value of the collateral is higher.
-        if collateral_min_value > loan_max_value {
-            msg!("The value of the collateral is higher.");
-            return Ok(());
-        } else {
-            return Err(error!(ErrorCode::LoanValueTooHigh));
-        }
-    }
 }
 
 #[derive(Accounts)]
-pub struct InitRequest<'info> {
+pub struct FetchPrice<'info> {
     #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + AdminConfig::INIT_SPACE
-    )]
-    pub config: Account<'info, AdminConfig>,
-    pub system_program: Program<'info, System>,
+    pub signer: Signer<'info>,
+    /// CHECK: We will manually check this against the Pubkey of the price feed
+    pub price_feed: AccountInfo<'info>,
 }
 
-#[derive(Accounts)]
-pub struct QueryRequest<'info> {
-    pub config: Account<'info, AdminConfig>,
-    #[account(
-        address = config.loan_price_feed_id @ ErrorCode::InvalidArgument
-    )]
-    pub pyth_loan_account: Account<'info, PriceFeed>,
-    #[account(
-        address = config.collateral_price_feed_id @ ErrorCode::InvalidArgument
-    )]
-    pub pyth_collateral_account: Account<'info, PriceFeed>,
+#[error_code]
+pub enum CustomError {
+    #[msg("Invalid Price Feed")]
+    InvalidPriceFeed,
+    #[msg("Invalid Symbol")]
+    InvalidSymbol
 }
