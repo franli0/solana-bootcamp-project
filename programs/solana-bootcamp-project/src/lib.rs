@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use pyth_sdk_solana::load_price_feed_from_account_info;
 
-declare_id!("4QKU2dkXGRTGFbR5e5tDQFitFrjVXLnWuKN71iHrZRBo");
+declare_id!("6NPy4FunXiEaUfa5xGCQtEz1FgWK1GtGDfegXoBjMm2Q");
 
 const STALENESS_THRESHOLD: u64 = 60;
 const BTC_USD_PRICE_FEED: &str = "HovQMDrbAgAYPCmHVSrezcSmkMtXSSUsLDFANExrZh2J";
@@ -45,8 +45,8 @@ pub mod solana_bootcamp_project {
 
 #[derive(Accounts)]
 pub struct FetchPrice<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>,
+    // #[account(mut)]
+    // pub signer: Signer<'info>,
     /// CHECK: We will manually check this against the Pubkey of the price feed
     pub price_feed: AccountInfo<'info>,
 }

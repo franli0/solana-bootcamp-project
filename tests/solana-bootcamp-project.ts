@@ -22,7 +22,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch BTC Price", async () => {
     const tx = await program.methods
       .fetchPrice("BTC")
-      .accounts({ signer: payer, priceFeed: btc_usd_price_feed })
+      .accounts({ priceFeed: btc_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -30,7 +30,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch SOL Price", async () => {
     const tx = await program.methods
       .fetchPrice("SOL")
-      .accounts({ signer: payer, priceFeed: sol_usd_price_feed })
+      .accounts({ priceFeed: sol_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -38,7 +38,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch ETH Price", async () => {
     const tx = await program.methods
       .fetchPrice("ETH")
-      .accounts({ signer: payer, priceFeed: eth_usd_price_feed })
+      .accounts({ priceFeed: eth_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -46,7 +46,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch 1INCH Price", async () => {
     const tx = await program.methods
       .fetchPrice("1INCH")
-      .accounts({ signer: payer, priceFeed: inch_usd_price_feed })
+      .accounts({ priceFeed: inch_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -54,7 +54,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch AAVE Price", async () => {
     const tx = await program.methods
       .fetchPrice("AAVE")
-      .accounts({ signer: payer, priceFeed: aave_usd_price_feed })
+      .accounts({ priceFeed: aave_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -62,7 +62,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch BNB Price", async () => {
     const tx = await program.methods
       .fetchPrice("BNB")
-      .accounts({ signer: payer, priceFeed: bnb_usd_price_feed })
+      .accounts({ priceFeed: bnb_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -70,7 +70,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch CAKE Price", async () => {
     const tx = await program.methods
       .fetchPrice("CAKE")
-      .accounts({ signer: payer, priceFeed: cake_usd_price_feed })
+      .accounts({ priceFeed: cake_usd_price_feed })
       .rpc();
     console.log("Your transaction signature", tx);
   });
@@ -79,7 +79,7 @@ describe("solana-bootcamp-project", () => {
   it("Fetch DAI Price", async () => {
     const tx = await program.methods
       .fetchPrice("DAI")
-      .accounts({ signer: payer, priceFeed: dai_usd_price_feed })
+      .accounts({ priceFeed: dai_usd_price_feed })
       .rpc();
     console.log("This test should fail because DAI wasn't listed", tx);
   });
